@@ -295,7 +295,11 @@ initial_setup() {
     log_debug "Starting initial_setup function"
     echo "Initial setup detected. Performing basic setup..."
 
-    read -rp "Would you like to create the default CalibreConfig directory? (Y/n) " choice
+    if [[ "$log_silent" -eq 1 || "$log_very_silent" -eq 1 ]]; then
+        choice="y"
+    else
+        read -rp "Would you like to create the default CalibreConfig directory? (Y/n) " choice
+    fi
     choice="${choice:-y}"
     if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
         log_dry_run mkdir -p "$(pwd)/CalibreConfig"
@@ -304,7 +308,11 @@ initial_setup() {
     fi
     log_debug "CALIBRE_CONFIG_DIRECTORY=$(pwd)/CalibreConfig"
 
-    read -rp "Would you like to create the default CalibreLibrary directory? (Y/n) " choice
+    if [[ "$log_silent" -eq 1 || "$log_very_silent" -eq 1 ]]; then
+        choice="y"
+    else
+        read -rp "Would you like to create the default CalibreLibrary directory? (Y/n) " choice
+    fi
     choice="${choice:-y}"
     if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
         log_dry_run mkdir -p "$(pwd)/CalibreLibrary"
@@ -313,7 +321,11 @@ initial_setup() {
     fi
     log_debug "CALIBRE_LIBRARY_DIRECTORIES[0]=$(pwd)/CalibreLibrary"
 
-    read -rp "Would you like to create the default CalibreTemp directory? (Y/n) " choice
+    if [[ "$log_silent" -eq 1 || "$log_very_silent" -eq 1 ]]; then
+        choice="y"
+    else
+        read -rp "Would you like to create the default CalibreTemp directory? (Y/n) " choice
+    fi
     choice="${choice:-y}"
     if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
         log_dry_run mkdir -p "$(pwd)/CalibreTemp"
@@ -323,7 +335,11 @@ initial_setup() {
     log_debug "CALIBRE_TEMP_DIR=$(pwd)/CalibreTemp"
 
     if [[ ! -d "$(pwd)/CalibreBin/calibre.app" && ! -d "$(pwd)/calibre.app" ]]; then
-        read -rp "No calibre.app found. Would you like to download it? (Y/n) " choice
+        if [[ "$log_silent" -eq 1 || "$log_very_silent" -eq 1 ]]; then
+            choice="y"
+        else
+            read -rp "No calibre.app found. Would you like to download it? (Y/n) " choice
+        fi
         choice="${choice:-y}"
         if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
             upgrade_calibre
@@ -333,7 +349,11 @@ initial_setup() {
     fi
 
     if [[ -d "$(pwd)/calibre.app" ]]; then
-        read -rp "Would you like to move calibre.app to the CalibreBin directory? (Y/n) " choice
+        if [[ "$log_silent" -eq 1 || "$log_very_silent" -eq 1 ]]; then
+            choice="y"
+        else
+            read -rp "Would you like to move calibre.app to the CalibreBin directory? (Y/n) " choice
+        fi
         choice="${choice:-y}"
         if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
             log_dry_run mkdir -p "$(pwd)/CalibreBin"
@@ -344,7 +364,11 @@ initial_setup() {
         fi
     fi
 
-    read -rp "Would you like to create the 'Calibre Portable Mac.command' launcher? (Y/n) " choice
+    if [[ "$log_silent" -eq 1 || "$log_very_silent" -eq 1 ]]; then
+        choice="y"
+    else
+        read -rp "Would you like to create the 'Calibre Portable Mac.command' launcher? (Y/n) " choice
+    fi
     choice="${choice:-y}"
     if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
         create_command_launcher
