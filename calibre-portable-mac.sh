@@ -1,9 +1,24 @@
 #!/usr/bin/env bash
 #                       calibre-portable-mac.sh
-#                       Version: 1.0.1
+#                           By: Pidockmedia
 #                       ¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬
 #
 # Shell script to manage a portable Calibre configuration on macOS.
+#
+# This script started as a fork of the calibre-portable.sh script by
+# eschwartz, which was based on the calibre-portable.sh script by itimpi
+#
+# The script has been modified to work on macOS and to provide additional
+# features and options for managing a portable Calibre configuration.
+# The script is designed to be run from the command line and provides
+# options for upgrading or installing the Calibre binaries, creating a
+# command launcher for starting Calibre, and setting detailed logging
+# levels for debugging and troubleshooting.
+#
+# Bash code has been heavily modified using AI. It was a personal challenge
+# to see how much I could improve the script without personally writing
+# a single line of code.
+#
 # This script provides explicit control over the location of:
 #  - Calibre app location
 #  - Calibre library files
@@ -32,8 +47,26 @@
 #  -d, --debug             Step through the script interactively, allowing the user to continue or quit at each step
 #  -r, --dry-run           Output the changes that would be made without actually making them
 #  -c, --create-launcher   Create a command launcher for starting Calibre
-#  -s, --silent            Suppress output except for necessary prompts
-#  -S, --very-silent       Suppress all output and prompts
+#  -s, --silent            Suppress all output except errors and the start prompt
+#  -S, --very-silent       Suppress all output including the start prompt
+#
+# Script Overview:
+# 1. Initialize script with strict mode and set default variables.
+# 2. Define logging and debugging functions.
+# 3. Define cleanup function to handle script exit.
+# 4. Define function to display usage information.
+# 5. Define function to upgrade or install Calibre.
+# 6. Define function to create command launcher.
+# 7. Define function to move calibre.app to the desired directory.
+# 8. Define function for initial setup.
+# 9. Parse command line options and set corresponding flags and variables.
+# 10. Load or create the configuration file.
+# 11. Set environment variables based on configuration file.
+# 12. Set library directories and check their existence.
+# 13. Set binary directory and check its existence.
+# 14. Set temporary directory and check its existence.
+# 15. Set interface language if specified.
+# 16. Confirm start if not set to auto-start and run Calibre.
 
 set -euo pipefail  # Enable strict mode
 
@@ -45,9 +78,9 @@ log_silent=0
 log_very_silent=0
 
 # Initialize configuration variables
-CALIBRE_CONFIG_DIRECTORY=""
-CALIBRE_LIBRARY_DIRECTORIES=()
+# shellcheck disable=SC2034
 CALIBRE_LIBRARY_DIRECTORY=""
+# shellcheck disable=SC2034
 CALIBRE_OVERRIDE_DATABASE_PATH=""
 CALIBRE_BINARY_DIRECTORY=""
 CALIBRE_TEMP_DIR=""
@@ -115,9 +148,9 @@ usage() {
           -V, --very-verbose        Enable highly detailed logging, including variable values and detailed descriptions of each action
           -d, --debug               Step through the script interactively, allowing the user to continue or quit at each step
           -r, --dry-run             Output the changes that would be made without actually making them
-          -s, --silent              Suppress output except for necessary prompts
-          -S, --very-silent         Suppress all output and prompts
           -c, --create-launcher     Create a command launcher for starting Calibre
+          -s, --silent              Suppress all output except errors and the start prompt
+          -S, --very-silent         Suppress all output including the start prompt
 _EOF_
 }
 
@@ -215,8 +248,20 @@ create_command_launcher() {
     else
         cat <<-_EOF_ > "$(pwd)/Calibre Portable Mac.command"
 #!/usr/bin/env bash
-source "$(pwd)/calibre-portable.conf"
-nohup "$(pwd)/calibre-portable-mac.sh" &>/dev/null &
+# Launcher for portable Calibre
+PORTABLE_DIR="\$(dirname "\$0")"
+# Default directories
+CALIBRE_CONFIG_DIRECTORY="\${PORTABLE_DIR}/CalibreConfig"
+CALIBRE_LIBRARY_DIRECTORIES[0]="\${PORTABLE_DIR}/CalibreLibrary"
+CALIBRE_OVERRIDE_DATABASE_PATH="\${PORTABLE_DIR}/CalibreMetadata"
+CALIBRE_BINARY_DIRECTORY="\${PORTABLE_DIR}/calibre.app/Contents/MacOS"
+CALIBRE_TEMP_DIR="\${PORTABLE_DIR}/CalibreTemp"
+CALIBRE_OVERRIDE_LANG="EN"
+# Load user configuration
+if [[ -f "\${PORTABLE_DIR}/calibre-portable.conf" ]]; then
+    source "\${PORTABLE_DIR}/calibre-portable.conf"
+fi
+"\${CALIBRE_BINARY_DIRECTORY}/calibre" --with-library "\${CALIBRE_LIBRARY_DIRECTORIES[0]}" &
 _EOF_
         chmod +x "$(pwd)/Calibre Portable Mac.command"
         echo "Created 'Calibre Portable Mac.command' launcher."
@@ -391,12 +436,6 @@ while [[ "${#}" -gt 0 ]]; do
     esac
 done
 
-# Function to print a divider line
-print_divider() {
-    width=$(tput cols)
-    printf '%*s\n' "$width" '' | tr ' ' '-'
-}
-
 # Load or create the configuration file
 config_file="$(pwd)/calibre-portable.conf"
 if [[ -f "$config_file" ]]; then
@@ -406,30 +445,17 @@ else
     initial_setup
 fi
 
-# Set configuration directory
-CALIBRE_CONFIG_DIRECTORY="${CALIBRE_CONFIG_DIRECTORY:-$(pwd)/CalibreConfig}"
+# Set environment variables based on configuration file
+export CALIBRE_CONFIG_DIRECTORY="${CALIBRE_CONFIG_DIRECTORY:-$(pwd)/CalibreConfig}"
 
 if [[ -d "${CALIBRE_CONFIG_DIRECTORY}" ]]; then
-    export CALIBRE_CONFIG_DIRECTORY
-    echo "CONFIG FILES:       ${CALIBRE_CONFIG_DIRECTORY}"
+    [[ $log_very_silent -eq 0 ]] && echo "CONFIG FILES:       ${CALIBRE_CONFIG_DIRECTORY}"
 else
-    echo -e "\033[0;31mCONFIG FILES:       Not found\033[0m"
+    [[ $log_very_silent -eq 0 ]] && echo -e "\033[0;31mCONFIG FILES:       Not found\033[0m"
 fi
-print_divider
+[[ $log_very_silent -eq 0 ]] && printf '%*s\n' "${width:-$(tput cols)}" '' | tr ' ' '-'
 
-# Set temporary directory
-CALIBRE_TEMP_DIR="${CALIBRE_TEMP_DIR:-$(pwd)/CalibreTemp}"
-
-if [[ -d "${CALIBRE_TEMP_DIR}" ]]; then
-    export CALIBRE_TEMP_DIR
-    export CALIBRE_CACHE_DIRECTORY="${CALIBRE_TEMP_DIR}"
-    echo "TEMPORARY FILES:    ${CALIBRE_TEMP_DIR}"
-else
-    echo -e "\033[0;31mTEMPORARY FILES:    Not found\033[0m"
-fi
-print_divider
-
-# Set library directories
+# Set library directories and check their existence
 CALIBRE_LIBRARY_DIRECTORIES=(
     "${CALIBRE_LIBRARY_DIRECTORIES[0]:-/path/to/first/CalibreLibrary}"
     "${CALIBRE_LIBRARY_DIRECTORIES[1]:-/path/to/second/CalibreLibrary}"
@@ -439,27 +465,26 @@ CALIBRE_LIBRARY_DIRECTORIES=(
 for library_dir in "${CALIBRE_LIBRARY_DIRECTORIES[@]}"; do
     if [[ -d "${library_dir}" ]]; then
         CALIBRE_LIBRARY_DIRECTORY="${library_dir}"
-        echo "LIBRARY FILES:      ${CALIBRE_LIBRARY_DIRECTORY}"
+        [[ $log_very_silent -eq 0 ]] && echo "LIBRARY FILES:      ${CALIBRE_LIBRARY_DIRECTORY}"
         break
     fi
 done
 
-[[ -z "${CALIBRE_LIBRARY_DIRECTORY}" ]] && echo -e "\033[0;31mLIBRARY FILES:      Not found\033[0m"
-print_divider
+[[ -z "${CALIBRE_LIBRARY_DIRECTORY}" ]] && [[ $log_very_silent -eq 0 ]] && echo -e "\033[0;31mLIBRARY FILES:      Not found\033[0m"
+[[ $log_very_silent -eq 0 ]] && printf '%*s\n' "${width:-$(tput cols)}" '' | tr ' ' '-'
 
-# Set metadata directory
-CALIBRE_OVERRIDE_DATABASE_PATH="${CALIBRE_OVERRIDE_DATABASE_PATH:-$(pwd)/CalibreMetadata}"
+# Set temporary directory
+export CALIBRE_TEMP_DIR="${CALIBRE_TEMP_DIR:-$(pwd)/CalibreTemp}"
 
-if [[ -f "${CALIBRE_OVERRIDE_DATABASE_PATH}/metadata.db" && "${CALIBRE_LIBRARY_DIRECTORY}" != "${CALIBRE_OVERRIDE_DATABASE_PATH}" ]]; then
-    export CALIBRE_OVERRIDE_DATABASE_PATH
-    echo "DATABASE:        ${CALIBRE_OVERRIDE_DATABASE_PATH}/metadata.db"
-    echo
-    echo -e "\033[0;31m***CAUTION*** Library Switching will be disabled\033[0m"
-    echo
-    print_divider
+if [[ -d "${CALIBRE_TEMP_DIR}" ]]; then
+    export CALIBRE_CACHE_DIRECTORY="${CALIBRE_TEMP_DIR}"
+    [[ $log_very_silent -eq 0 ]] && echo "TEMPORARY FILES:    ${CALIBRE_TEMP_DIR}"
+else
+    [[ $log_very_silent -eq 0 ]] && echo -e "\033[0;31mTEMPORARY FILES:    Not found\033[0m"
 fi
+[[ $log_very_silent -eq 0 ]] && printf '%*s\n' "${width:-$(tput cols)}" '' | tr ' ' '-'
 
-# Set binary directory
+# Set binary directory and check its existence
 if [[ -d "$(pwd)/CalibreBin/calibre.app/Contents/MacOS" ]]; then
     CALIBRE_BINARY_DIRECTORY="$(pwd)/CalibreBin/calibre.app/Contents/MacOS"
 elif [[ -d "$(pwd)/calibre.app/Contents/MacOS" ]]; then
@@ -470,39 +495,31 @@ fi
 
 if [[ -n "$CALIBRE_BINARY_DIRECTORY" ]]; then
     calibre_executable="${CALIBRE_BINARY_DIRECTORY}/calibre"
-    echo "PROGRAM FILES:      ${CALIBRE_BINARY_DIRECTORY}"
+    [[ $log_very_silent -eq 0 ]] && echo "PROGRAM FILES:      ${CALIBRE_BINARY_DIRECTORY}"
 else
     calibre_executable="calibre"
-    echo "PROGRAM FILES:      No portable copy found."
-    echo "To install a portable copy, run './calibre-portable-mac.sh --upgrade-install'"
-    echo -e "\033[0;31m*** Using system search path instead***\033[0m"
+    [[ $log_very_silent -eq 0 ]] && echo "PROGRAM FILES:      No portable copy found."
+    [[ $log_very_silent -eq 0 ]] && echo "To install a portable copy, run './calibre-portable-mac.sh --upgrade-install'"
+    [[ $log_very_silent -eq 0 ]] && echo -e "\033[0;31m*** Using system search path instead***\033[0m"
 fi
-print_divider
+[[ $log_very_silent -eq 0 ]] && printf '%*s\n' "${width:-$(tput cols)}" '' | tr ' ' '-'
 
-# Set interface language
-CALIBRE_OVERRIDE_LANG="${CALIBRE_OVERRIDE_LANG:-}"
-
+# Set interface language if specified
 if [[ -n "${CALIBRE_OVERRIDE_LANG}" ]]; then
     export CALIBRE_OVERRIDE_LANG
-    echo "INTERFACE LANGUAGE: ${CALIBRE_OVERRIDE_LANG}"
-    print_divider
+    [[ $log_very_silent -eq 0 ]] && echo "INTERFACE LANGUAGE: ${CALIBRE_OVERRIDE_LANG}"
 fi
 
-# Confirm start
-if [[ "${calibre_no_confirm_start}" != "1" && $log_very_silent -ne 1 ]]; then
-    echo
+# Confirm start if not set to auto-start and run Calibre
+if [[ "${calibre_no_confirm_start}" != "1" && $log_very_silent -eq 0 ]]; then
     read -rp "Start Calibre? (Y/n) " choice
-    choice="${choice:-y}"
-    if [[ "$choice" != "y" && "$choice" != "Y" ]]; then
-        echo "Exiting."
-        exit 0
-    fi
+    case "$choice" in
+        y|Y|"" ) ;;
+        * ) echo "Exiting."; exit;;
+    esac
 fi
 
-# Start Calibre
-if [[ $log_silent -ne 1 ]]; then
-    echo "Starting up calibre from portable directory \"$(pwd)\""
-fi
-log_dry_run "$calibre_executable" --with-library "${CALIBRE_LIBRARY_DIRECTORY}"
+echo "Starting up calibre from portable directory \"$(pwd)\""
+log_dry_run "$calibre_executable" --with-library "${CALIBRE_LIBRARY_DIRECTORY}" &
 
 ###EOF
