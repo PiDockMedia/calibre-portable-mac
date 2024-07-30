@@ -44,7 +44,7 @@
 #  -h, --help              Show usage message and exit
 #  -v, --verbose           Enable detailed logging of the script's actions
 #  -V, --very-verbose      Enable highly detailed logging, including variable values and detailed descriptions of each action
-#  -d, --debug             Step through the script interactively, allowing the user to continue or quit at each step
+#  -t, --step              Step through the script interactively, allowing the user to continue or quit at each step
 #  -r, --dry-run           Output the changes that would be made without actually making them
 #  -c, --create-launcher   Create a command launcher for starting Calibre
 #  -s, --silent            Suppress all output except errors and the start prompt
@@ -73,7 +73,7 @@ set -euo pipefail  # Enable strict mode
 # Variables for logging levels and modes
 log_verbose=0
 log_dry_run=0
-log_debug=0
+log_step=0
 log_silent=0
 log_very_silent=0
 
@@ -111,10 +111,10 @@ log_dry_run() {
     fi
 }
 
-# Function for interactive debugging
-debug_step() {
-    if [[ $log_debug -eq 1 ]]; then
-        read -rp "Continue? (Y/n) " choice
+# Function for step-by-step debugging
+step_mode() {
+    if [[ $log_step -eq 1 ]]; then
+        read -rp "Continue...? (Y/n) " choice
         case "$choice" in 
             y|Y|"" ) echo "Continuing...";;
             * ) echo "Exiting."; exit;;
@@ -146,7 +146,7 @@ usage() {
           -h, --help                Show this usage message then exit
           -v, --verbose             Enable detailed logging of the script's actions
           -V, --very-verbose        Enable highly detailed logging, including variable values and detailed descriptions of each action
-          -d, --debug               Step through the script interactively, allowing the user to continue or quit at each step
+          -t, --step                Step through the script interactively, allowing the user to continue or quit at each step
           -r, --dry-run             Output the changes that would be made without actually making them
           -c, --create-launcher     Create a command launcher for starting Calibre
           -s, --silent              Suppress all output except errors and the start prompt
@@ -156,10 +156,12 @@ _EOF_
 
 # Function to upgrade or install Calibre on macOS
 upgrade_calibre() {
+    step_mode  # Step mode prompt
     output_debug "Starting upgrade_calibre function"
     local temp_dir dmg_path latest_dmg_url volume_path temp_calibre_app_path
 
     if [[ $log_dry_run -eq 1 ]]; then
+        step_mode  # Step mode prompt
         echo "[DRY-RUN] Create a temporary directory for download"
         echo "[DRY-RUN] Download the latest Calibre DMG"
         echo "[DRY-RUN] Mount the DMG and copy calibre.app"
@@ -171,15 +173,15 @@ upgrade_calibre() {
     # Making the temp dmg download directory
     temp_dir="$(pwd)/calibre_temp"
     output_debug "TEMP_DIR=${temp_dir}"
+    step_mode  # Step mode prompt
     log_dry_run mkdir -p "$temp_dir"
-    debug_step
 
     # Getting the current dmg download url
     dmg_path="$temp_dir/calibre-latest.dmg"
     output_debug "DMG_PATH=${dmg_path}"
+    step_mode  # Step mode prompt
     latest_dmg_url=$(curl -s https://calibre-ebook.com/download_osx | grep -o 'https://[^"]*\.dmg' | head -1)
     output_debug "LATEST_DMG_URL=${latest_dmg_url}"
-    debug_step
 
     if [[ -z "$latest_dmg_url" ]]; then
         output "Failed to retrieve the latest Calibre DMG URL."
@@ -190,7 +192,7 @@ upgrade_calibre() {
     # Downloading the current dmg
     curl_command=("curl" "-L" "-o" "$dmg_path" "$latest_dmg_url")
     output_debug "CURL_COMMAND=${curl_command[*]}"
-    debug_step
+    step_mode  # Step mode prompt
     log_dry_run "${curl_command[@]}"
     if [[ $? -ne 0 || ! -f "$dmg_path" ]]; then
         output "Failed to download Calibre DMG."
@@ -201,7 +203,7 @@ upgrade_calibre() {
     # Mounting the dmg
     volume_path=$(hdiutil attach "$dmg_path" | grep "/Volumes/" | awk '{print $3}')
     output_debug "VOLUME_PATH=${volume_path}"
-    debug_step
+    step_mode  # Step mode prompt
 
     if [[ -z "$volume_path" ]]; then
         output "Failed to mount Calibre DMG."
@@ -214,7 +216,7 @@ upgrade_calibre() {
         # Copying the calibre.app from the mounted dmg to the temp directory
         cp_command=("ditto" "$volume_path/calibre.app" "$temp_calibre_app_path")
         output_debug "CP_COMMAND=${cp_command[*]}"
-        debug_step
+        step_mode  # Step mode prompt
         log_dry_run "${cp_command[@]}"
 
         log_dry_run rm -rf "${CALIBRE_BINARY_DIRECTORY}/calibre.app"
@@ -237,6 +239,7 @@ upgrade_calibre() {
 
 # Function to create command launcher
 create_command_launcher() {
+    step_mode  # Step mode prompt
     output_debug "Starting create_command_launcher function"
     if [[ $log_dry_run -eq 1 ]]; then
         echo "[DRY-RUN] cat <<-_EOF_ > \"$(pwd)/Calibre Portable Mac.command\""
@@ -271,6 +274,7 @@ _EOF_
 
 # Function to move calibre.app to the desired directory
 move_calibre_app() {
+    step_mode  # Step mode prompt
     local temp_calibre_app_path="${1}"
     read -rp "Would you like to create the 'CalibreBin' directory and move 'calibre.app' there? (Y/n) " choice
     choice="${choice:-y}"
@@ -292,6 +296,7 @@ move_calibre_app() {
 
 # Function to perform initial setup
 initial_setup() {
+    step_mode  # Step mode prompt
     output_debug "Starting initial_setup function"
     output "Initial setup detected. Performing basic setup..."
 
@@ -398,7 +403,7 @@ initial_setup() {
 #CALIBRE_CONFIG_DIRECTORY="$(pwd)/CalibreConfig"
 #CALIBRE_LIBRARY_DIRECTORIES[0]="$(pwd)/CalibreLibrary"
 #CALIBRE_LIBRARY_DIRECTORIES[1]="/path/to/second/CalibreLibrary"
-#CALIBRE_LIBRARY_DIRECTORIES[2]="/path/to/third/CalibreLibrary"
+#CALIBRE_LIBRARY_DIRECTORIES[2]="$(pwd)/CalibreLibrary"
 #CALIBRE_OVERRIDE_DATABASE_PATH="$(pwd)/CalibreMetadata"
 #CALIBRE_BINARY_DIRECTORY="${CALIBRE_BINARY_DIRECTORY:-$(pwd)/calibre.app/Contents/MacOS}"
 #CALIBRE_TEMP_DIR="$(pwd)/CalibreTemp"
@@ -436,8 +441,8 @@ while [[ "${#}" -gt 0 ]]; do
             log_verbose=2
             shift
             ;;
-        -d|--debug)
-            log_debug=1
+        -t|--step)
+            log_step=1
             shift
             ;;
         -r|--dry-run)
