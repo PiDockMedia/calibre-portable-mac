@@ -49,13 +49,31 @@
 #  -c, --create-launcher   Create a command launcher for starting Calibre
 #  -s, --silent            Suppress all output except errors and the start prompt
 #  -S, --very-silent       Suppress all output including the start prompt
+#
+# Script Overview:
+# 1. Initialize script with strict mode and set default variables.
+# 2. Define logging and debugging functions.
+# 3. Define cleanup function to handle script exit.
+# 4. Define function to display usage information.
+# 5. Define function to upgrade or install Calibre.
+# 6. Define function to create command launcher.
+# 7. Define function to move calibre.app to the desired directory.
+# 8. Define function for initial setup.
+# 9. Parse command line options and set corresponding flags and variables.
+# 10. Load or create the configuration file.
+# 11. Set environment variables based on configuration file.
+# 12. Set library directories and check their existence.
+# 13. Set binary directory and check its existence.
+# 14. Set temporary directory and check its existence.
+# 15. Set interface language if specified.
+# 16. Confirm start if not set to auto-start and run Calibre.
 
 set -euo pipefail  # Enable strict mode
 
 # Variables for logging levels and modes
 log_verbose=0
 log_dry_run=0
-log_step=0
+log_debug=0
 log_silent=0
 log_very_silent=0
 
@@ -93,9 +111,9 @@ log_dry_run() {
     fi
 }
 
-# Function for step mode
-step_mode() {
-    if [[ $log_step -eq 1 ]]; then
+# Function for interactive debugging
+debug_step() {
+    if [[ $log_debug -eq 1 ]]; then
         read -rp "Continue? (Y/n) " choice
         case "$choice" in 
             y|Y|"" ) echo "Continuing...";;
@@ -138,7 +156,6 @@ _EOF_
 
 # Function to upgrade or install Calibre on macOS
 upgrade_calibre() {
-    step_mode  # Step mode prompt
     output_debug "Starting upgrade_calibre function"
     local temp_dir dmg_path latest_dmg_url volume_path temp_calibre_app_path
 
@@ -216,12 +233,10 @@ upgrade_calibre() {
     # Removing the temporary directory
     log_dry_run rm -rf "$temp_dir"
     output_debug "upgrade_calibre function completed"
-    step_mode  # Step mode prompt
 }
 
 # Function to create command launcher
 create_command_launcher() {
-    step_mode  # Step mode prompt
     output_debug "Starting create_command_launcher function"
     if [[ $log_dry_run -eq 1 ]]; then
         echo "[DRY-RUN] cat <<-_EOF_ > \"$(pwd)/Calibre Portable Mac.command\""
@@ -252,12 +267,10 @@ _EOF_
         [[ $log_silent -eq 0 ]] && output "Created 'Calibre Portable Mac.command' launcher."
     fi
     output_debug "create_command_launcher function completed"
-    step_mode  # Step mode prompt
 }
 
 # Function to move calibre.app to the desired directory
 move_calibre_app() {
-    step_mode  # Step mode prompt
     local temp_calibre_app_path="${1}"
     read -rp "Would you like to create the 'CalibreBin' directory and move 'calibre.app' there? (Y/n) " choice
     choice="${choice:-y}"
@@ -275,12 +288,10 @@ move_calibre_app() {
         output "Moved 'calibre.app' to the current directory."
     fi
     output_debug "CALIBRE_BINARY_DIRECTORY=${CALIBRE_BINARY_DIRECTORY}"
-    step_mode  # Step mode prompt
 }
 
 # Function to perform initial setup
 initial_setup() {
-    step_mode  # Step mode prompt
     output_debug "Starting initial_setup function"
     output "Initial setup detected. Performing basic setup..."
 
@@ -296,7 +307,6 @@ initial_setup() {
         output "Created CalibreConfig directory."
     fi
     output_debug "CALIBRE_CONFIG_DIRECTORY=$(pwd)/CalibreConfig"
-    step_mode  # Step mode prompt
 
     if [[ $log_silent -eq 0 ]]; then
         read -rp "Would you like to create the default CalibreLibrary directory? (Y/n) " choice
@@ -310,7 +320,6 @@ initial_setup() {
         output "Created CalibreLibrary directory."
     fi
     output_debug "CALIBRE_LIBRARY_DIRECTORIES[0]=$(pwd)/CalibreLibrary"
-    step_mode  # Step mode prompt
 
     if [[ $log_silent -eq 0 ]]; then
         read -rp "Would you like to create the default CalibreTemp directory? (Y/n) " choice
@@ -324,7 +333,6 @@ initial_setup() {
         output "Created CalibreTemp directory."
     fi
     output_debug "CALIBRE_TEMP_DIR=$(pwd)/CalibreTemp"
-    step_mode  # Step mode prompt
 
     if [[ ! -d "$(pwd)/CalibreBin/calibre.app" && ! -d "$(pwd)/calibre.app" ]]; then
         if [[ $log_silent -eq 0 ]]; then
@@ -339,7 +347,6 @@ initial_setup() {
             output "Skipping calibre.app download."
         fi
     fi
-    step_mode  # Step mode prompt
 
     if [[ -d "$(pwd)/calibre.app" ]]; then
         if [[ $log_silent -eq 0 ]]; then
@@ -356,7 +363,6 @@ initial_setup() {
             output "Moved calibre.app to CalibreBin directory."
         fi
     fi
-    step_mode  # Step mode prompt
 
     if [[ $log_silent -eq 0 ]]; then
         read -rp "Would you like to create the 'Calibre Portable Mac.command' launcher? (Y/n) " choice
@@ -367,7 +373,6 @@ initial_setup() {
     if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
         create_command_launcher
     fi
-    step_mode  # Step mode prompt
 
     if [[ $log_dry_run -eq 1 ]]; then
         echo "[DRY-RUN] cat <<-_EOF_ > \"$(pwd)/calibre-portable.conf\""
@@ -404,7 +409,6 @@ _EOF_
         output "Generated default configuration file at $(pwd)/calibre-portable.conf"
     fi
     output_debug "initial_setup function completed"
-    step_mode  # Step mode prompt
 }
 
 # Function to print divider
@@ -416,49 +420,40 @@ print_divider() {
 while [[ "${#}" -gt 0 ]]; do
     case "${1}" in
         -u|--upgrade-install)
-            step_mode  # Step mode prompt
             shift
             upgrade_calibre
             exit
             ;;
         -h|--help)
-            step_mode  # Step mode prompt
             usage
             exit
             ;;
         -v|--verbose)
-            step_mode  # Step mode prompt
             log_verbose=1
             shift
             ;;
         -V|--very-verbose)
-            step_mode  # Step mode prompt
             log_verbose=2
             shift
             ;;
         -d|--debug)
-            step_mode  # Step mode prompt
-            log_step=1
+            log_debug=1
             shift
             ;;
         -r|--dry-run)
-            step_mode  # Step mode prompt
             log_dry_run=1
             shift
             ;;
         -s|--silent)
-            step_mode  # Step mode prompt
             log_silent=1
             shift
             ;;
         -S|--very-silent)
-            step_mode  # Step mode prompt
             log_silent=1
             log_very_silent=1
             shift
             ;;
         -c|--create-launcher)
-            step_mode  # Step mode prompt
             create_command_launcher
             exit
             ;;
@@ -468,11 +463,9 @@ while [[ "${#}" -gt 0 ]]; do
             exit 1
             ;;
     esac
-    step_mode  # Step mode prompt
 done
 
 # Load or create the configuration file
-step_mode  # Step mode prompt
 config_file="$(pwd)/calibre-portable.conf"
 if [[ -f "$config_file" ]]; then
     # shellcheck source=/dev/null
@@ -482,7 +475,6 @@ else
 fi
 
 # Set environment variables based on configuration file
-step_mode  # Step mode prompt
 export CALIBRE_CONFIG_DIRECTORY="${CALIBRE_CONFIG_DIRECTORY:-$(pwd)/CalibreConfig}"
 
 if [[ -d "${CALIBRE_CONFIG_DIRECTORY}" ]]; then
@@ -491,10 +483,8 @@ else
     [[ $log_very_silent -eq 0 ]] && output -e "\033[0;31mCONFIG FILES:       Not found\033[0m"
 fi
 print_divider
-step_mode  # Step mode prompt
 
 # Set library directories and check their existence
-step_mode  # Step mode prompt
 CALIBRE_LIBRARY_DIRECTORIES=(
     "${CALIBRE_LIBRARY_DIRECTORIES[0]:-/path/to/first/CalibreLibrary}"
     "${CALIBRE_LIBRARY_DIRECTORIES[1]:-/path/to/second/CalibreLibrary}"
@@ -502,7 +492,6 @@ CALIBRE_LIBRARY_DIRECTORIES=(
 )
 
 for library_dir in "${CALIBRE_LIBRARY_DIRECTORIES[@]}"; do
-    step_mode  # Step mode prompt
     if [[ -d "${library_dir}" ]]; then
         CALIBRE_LIBRARY_DIRECTORY="${library_dir}"
         [[ $log_very_silent -eq 0 ]] && output "LIBRARY FILES:      ${CALIBRE_LIBRARY_DIRECTORY}"
@@ -512,10 +501,8 @@ done
 
 [[ -z "${CALIBRE_LIBRARY_DIRECTORY}" ]] && [[ $log_very_silent -eq 0 ]] && output -e "\033[0;31mLIBRARY FILES:      Not found\033[0m"
 print_divider
-step_mode  # Step mode prompt
 
 # Set temporary directory
-step_mode  # Step mode prompt
 export CALIBRE_TEMP_DIR="${CALIBRE_TEMP_DIR:-$(pwd)/CalibreTemp}"
 
 if [[ -d "${CALIBRE_TEMP_DIR}" ]]; then
@@ -525,10 +512,8 @@ else
     [[ $log_very_silent -eq 0 ]] && output -e "\033[0;31mTEMPORARY FILES:    Not found\033[0m"
 fi
 print_divider
-step_mode  # Step mode prompt
 
 # Set binary directory and check its existence
-step_mode  # Step mode prompt
 if [[ -d "$(pwd)/CalibreBin/calibre.app/Contents/MacOS" ]]; then
     CALIBRE_BINARY_DIRECTORY="$(pwd)/CalibreBin/calibre.app/Contents/MacOS"
 elif [[ -d "$(pwd)/calibre.app/Contents/MacOS" ]]; then
@@ -547,18 +532,14 @@ else
     [[ $log_very_silent -eq 0 ]] && output -e "\033[0;31m*** Using system search path instead***\033[0m"
 fi
 print_divider
-step_mode  # Step mode prompt
 
 # Set interface language if specified
-step_mode  # Step mode prompt
 if [[ -n "${CALIBRE_OVERRIDE_LANG}" ]]; then
     export CALIBRE_OVERRIDE_LANG
     [[ $log_very_silent -eq 0 ]] && output "INTERFACE LANGUAGE: ${CALIBRE_OVERRIDE_LANG}"
 fi
-step_mode  # Step mode prompt
 
 # Confirm start if not set to auto-start and run Calibre
-step_mode  # Step mode prompt
 if [[ "${calibre_no_confirm_start}" != "1" && $log_very_silent -eq 0 ]]; then
     read -rp "Start Calibre? (Y/n) " choice
     case "$choice" in
@@ -566,7 +547,6 @@ if [[ "${calibre_no_confirm_start}" != "1" && $log_very_silent -eq 0 ]]; then
         * ) output "Exiting."; exit;;
     esac
 fi
-step_mode  # Step mode prompt
 
 if [[ $log_very_silent -eq 1 ]]; then
     log_dry_run "$calibre_executable" --with-library "${CALIBRE_LIBRARY_DIRECTORY}" &
