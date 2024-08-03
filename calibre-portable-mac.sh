@@ -2,6 +2,7 @@
 #                       calibre-portable-mac.sh
 #                           By: Pidockmedia
 #                       ¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬
+# Unique Name: calibre-portable-mac.sh-mod-box-output-v15
 #
 # Shell script to manage a portable Calibre configuration on macOS.
 #
@@ -44,7 +45,7 @@
 #  -h, --help              Show usage message and exit
 #  -v, --verbose           Enable detailed logging of the script's actions
 #  -V, --very-verbose      Enable highly detailed logging, including variable values and detailed descriptions of each action
-#  -d, --debug             Step through the script interactively, allowing the user to continue or quit at each step
+#  -t, --step              Step through the script interactively, allowing the user to continue or quit at each step
 #  -r, --dry-run           Output the changes that would be made without actually making them
 #  -c, --create-launcher   Create a command launcher for starting Calibre
 #  -s, --silent            Suppress all output except errors and the start prompt
@@ -72,6 +73,7 @@ set -euo pipefail  # Enable strict mode
 
 # Variables for logging levels and modes
 log_verbose=0
+log_very_verbose=0  # Initialize log_very_verbose to eliminate shellcheck warning
 log_dry_run=0
 log_debug=0
 log_silent=0
@@ -84,14 +86,24 @@ CALIBRE_LIBRARY_DIRECTORY=""
 CALIBRE_OVERRIDE_DATABASE_PATH=""
 CALIBRE_BINARY_DIRECTORY=""
 CALIBRE_TEMP_DIR=""
+# shellcheck disable=SC2034
 CALIBRE_OVERRIDE_LANG=""
 calibre_no_confirm_start=0
 calibre_no_cleanup=0
 
-# Function to log messages
+# Function to log messages with optional colors
 output() {
+    local color="$1"
+    shift
+    local message="$*"
     if [[ $log_silent -eq 0 ]]; then
-        echo "$@"
+        case "$color" in
+            "red") echo -e "\033[0;31m${message}\033[0m";;
+            "green") echo -e "\033[0;32m${message}\033[0m";;
+            "yellow") echo -e "\033[0;33m${message}\033[0m";;
+            "blue") echo -e "\033[0;34m${message}\033[0m";;
+            *) echo "$message";;
+        esac
     fi
 }
 
@@ -112,7 +124,7 @@ log_dry_run() {
 }
 
 # Function for interactive debugging
-debug_step() {
+step_mode() {
     if [[ $log_debug -eq 1 ]]; then
         read -rp "Continue? (Y/n) " choice
         case "$choice" in 
@@ -146,7 +158,7 @@ usage() {
           -h, --help                Show this usage message then exit
           -v, --verbose             Enable detailed logging of the script's actions
           -V, --very-verbose        Enable highly detailed logging, including variable values and detailed descriptions of each action
-          -d, --debug               Step through the script interactively, allowing the user to continue or quit at each step
+          -t, --step                Step through the script interactively, allowing the user to continue or quit at each step
           -r, --dry-run             Output the changes that would be made without actually making them
           -c, --create-launcher     Create a command launcher for starting Calibre
           -s, --silent              Suppress all output except errors and the start prompt
@@ -157,6 +169,9 @@ _EOF_
 # Function to upgrade or install Calibre on macOS
 upgrade_calibre() {
     output_debug "Starting upgrade_calibre function"
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "-- Begin upgrading or installing Calibre --"
+    fi
     local temp_dir dmg_path latest_dmg_url volume_path temp_calibre_app_path
 
     if [[ $log_dry_run -eq 1 ]]; then
@@ -172,17 +187,17 @@ upgrade_calibre() {
     temp_dir="$(pwd)/calibre_temp"
     output_debug "TEMP_DIR=${temp_dir}"
     log_dry_run mkdir -p "$temp_dir"
-    debug_step
+    step_mode
 
     # Getting the current dmg download url
     dmg_path="$temp_dir/calibre-latest.dmg"
     output_debug "DMG_PATH=${dmg_path}"
     latest_dmg_url=$(curl -s https://calibre-ebook.com/download_osx | grep -o 'https://[^"]*\.dmg' | head -1)
     output_debug "LATEST_DMG_URL=${latest_dmg_url}"
-    debug_step
+    step_mode
 
     if [[ -z "$latest_dmg_url" ]]; then
-        output "Failed to retrieve the latest Calibre DMG URL."
+        output "red" "Failed to retrieve the latest Calibre DMG URL."
         log_dry_run rm -rf "$temp_dir"
         exit 1
     fi
@@ -190,10 +205,10 @@ upgrade_calibre() {
     # Downloading the current dmg
     curl_command=("curl" "-L" "-o" "$dmg_path" "$latest_dmg_url")
     output_debug "CURL_COMMAND=${curl_command[*]}"
-    debug_step
+    step_mode
     log_dry_run "${curl_command[@]}"
     if [[ $? -ne 0 || ! -f "$dmg_path" ]]; then
-        output "Failed to download Calibre DMG."
+        output "red" "Failed to download Calibre DMG."
         log_dry_run rm -rf "$temp_dir"
         exit 1
     fi
@@ -201,10 +216,10 @@ upgrade_calibre() {
     # Mounting the dmg
     volume_path=$(hdiutil attach "$dmg_path" | grep "/Volumes/" | awk '{print $3}')
     output_debug "VOLUME_PATH=${volume_path}"
-    debug_step
+    step_mode
 
     if [[ -z "$volume_path" ]]; then
-        output "Failed to mount Calibre DMG."
+        output "red" "Failed to mount Calibre DMG."
         log_dry_run rm -rf "$temp_dir"
         exit 1
     fi
@@ -214,17 +229,17 @@ upgrade_calibre() {
         # Copying the calibre.app from the mounted dmg to the temp directory
         cp_command=("ditto" "$volume_path/calibre.app" "$temp_calibre_app_path")
         output_debug "CP_COMMAND=${cp_command[*]}"
-        debug_step
+        step_mode
         log_dry_run "${cp_command[@]}"
 
         log_dry_run rm -rf "${CALIBRE_BINARY_DIRECTORY}/calibre.app"
         move_calibre_app "$temp_calibre_app_path"
-        output "Calibre has been upgraded/installed successfully."
+        output "green" "Calibre has been upgraded/installed successfully."
 
         # Unmounting the dmg
         log_dry_run hdiutil detach "$volume_path"
     else
-        output "Failed to find calibre.app in the mounted DMG."
+        output "red" "Failed to find calibre.app in the mounted DMG."
         log_dry_run hdiutil detach "$volume_path"
         log_dry_run rm -rf "$temp_dir"
         exit 1
@@ -233,11 +248,18 @@ upgrade_calibre() {
     # Removing the temporary directory
     log_dry_run rm -rf "$temp_dir"
     output_debug "upgrade_calibre function completed"
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "-- End upgrading or installing Calibre --"
+    fi
+    step_mode
 }
 
 # Function to create command launcher
 create_command_launcher() {
     output_debug "Starting create_command_launcher function"
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "-- Begin creating command launcher --"
+    fi
     if [[ $log_dry_run -eq 1 ]]; then
         echo "[DRY-RUN] cat <<-_EOF_ > \"$(pwd)/Calibre Portable Mac.command\""
         echo "[DRY-RUN] #!/usr/bin/env bash"
@@ -264,14 +286,22 @@ fi
 "\${CALIBRE_BINARY_DIRECTORY}/calibre" --with-library "\${CALIBRE_LIBRARY_DIRECTORIES[0]}" &
 _EOF_
         chmod +x "$(pwd)/Calibre Portable Mac.command"
-        [[ $log_silent -eq 0 ]] && output "Created 'Calibre Portable Mac.command' launcher."
+        [[ $log_silent -eq 0 ]] && output "green" "Created 'Calibre Portable Mac.command' launcher."
     fi
     output_debug "create_command_launcher function completed"
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "-- End creating command launcher --"
+    fi
+    step_mode
 }
 
 # Function to move calibre.app to the desired directory
 move_calibre_app() {
     local temp_calibre_app_path="${1}"
+    output_debug "Starting move_calibre_app function"
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "-- Begin moving calibre.app --"
+    fi
     read -rp "Would you like to create the 'CalibreBin' directory and move 'calibre.app' there? (Y/n) " choice
     choice="${choice:-y}"
     if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
@@ -281,19 +311,26 @@ move_calibre_app() {
         fi
         log_dry_run mv "$temp_calibre_app_path" "$CALIBRE_BINARY_DIRECTORY/calibre.app"
         log_dry_run chmod 755 "$CALIBRE_BINARY_DIRECTORY"
-        output "Moved 'calibre.app' to 'CalibreBin' directory."
+        output "green" "Moved 'calibre.app' to 'CalibreBin' directory."
     else
         CALIBRE_BINARY_DIRECTORY="$(pwd)"
         log_dry_run mv "$temp_calibre_app_path" "$CALIBRE_BINARY_DIRECTORY/calibre.app"
-        output "Moved 'calibre.app' to the current directory."
+        output "green" "Moved 'calibre.app' to the current directory."
     fi
     output_debug "CALIBRE_BINARY_DIRECTORY=${CALIBRE_BINARY_DIRECTORY}"
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "-- End moving calibre.app --"
+    fi
+    step_mode
 }
 
 # Function to perform initial setup
 initial_setup() {
     output_debug "Starting initial_setup function"
-    output "Initial setup detected. Performing basic setup..."
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "-- Begin initial setup --"
+    fi
+    output "yellow" "Initial setup detected. Performing basic setup..."
 
     if [[ $log_silent -eq 0 ]]; then
         read -rp "Would you like to create the default CalibreConfig directory? (Y/n) " choice
@@ -301,12 +338,19 @@ initial_setup() {
     else
         choice="y"
     fi
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "-- Begin CalibreConfig directory creation --"
+    fi
     if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
         log_dry_run mkdir -p "$(pwd)/CalibreConfig"
         log_dry_run chmod 755 "$(pwd)/CalibreConfig"
-        output "Created CalibreConfig directory."
+        output "green" "Created CalibreConfig directory."
     fi
     output_debug "CALIBRE_CONFIG_DIRECTORY=$(pwd)/CalibreConfig"
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "-- End CalibreConfig directory creation --"
+    fi
+    step_mode
 
     if [[ $log_silent -eq 0 ]]; then
         read -rp "Would you like to create the default CalibreLibrary directory? (Y/n) " choice
@@ -314,12 +358,19 @@ initial_setup() {
     else
         choice="y"
     fi
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "-- Begin CalibreLibrary directory creation --"
+    fi
     if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
         log_dry_run mkdir -p "$(pwd)/CalibreLibrary"
         log_dry_run chmod 755 "$(pwd)/CalibreLibrary"
-        output "Created CalibreLibrary directory."
+        output "green" "Created CalibreLibrary directory."
     fi
     output_debug "CALIBRE_LIBRARY_DIRECTORIES[0]=$(pwd)/CalibreLibrary"
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "-- End CalibreLibrary directory creation --"
+    fi
+    step_mode
 
     if [[ $log_silent -eq 0 ]]; then
         read -rp "Would you like to create the default CalibreTemp directory? (Y/n) " choice
@@ -327,12 +378,19 @@ initial_setup() {
     else
         choice="y"
     fi
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "-- Begin CalibreTemp directory creation --"
+    fi
     if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
         log_dry_run mkdir -p "$(pwd)/CalibreTemp"
         log_dry_run chmod 755 "$(pwd)/CalibreTemp"
-        output "Created CalibreTemp directory."
+        output "green" "Created CalibreTemp directory."
     fi
     output_debug "CALIBRE_TEMP_DIR=$(pwd)/CalibreTemp"
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "-- End CalibreTemp directory creation --"
+    fi
+    step_mode
 
     if [[ ! -d "$(pwd)/CalibreBin/calibre.app" && ! -d "$(pwd)/calibre.app" ]]; then
         if [[ $log_silent -eq 0 ]]; then
@@ -360,7 +418,7 @@ initial_setup() {
             log_dry_run mv "$(pwd)/calibre.app" "$(pwd)/CalibreBin/"
             log_dry_run chmod 755 "$(pwd)/CalibreBin"
             CALIBRE_BINARY_DIRECTORY="$(pwd)/CalibreBin/calibre.app/Contents/MacOS"
-            output "Moved calibre.app to CalibreBin directory."
+            output "green" "Moved calibre.app to CalibreBin directory."
         fi
     fi
 
@@ -406,14 +464,18 @@ initial_setup() {
 #calibre_no_confirm_start=0
 #calibre_no_cleanup=0
 _EOF_
-        output "Generated default configuration file at $(pwd)/calibre-portable.conf"
+        output "green" "Generated default configuration file at $(pwd)/calibre-portable.conf"
     fi
     output_debug "initial_setup function completed"
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "-- End initial setup --"
+    fi
+    step_mode
 }
 
 # Function to print divider
 print_divider() {
-    [[ $log_silent -eq 0 ]] && printf '%*s\n' "${width:-$(tput cols)}" '' | tr ' ' '-'
+    printf '+%s+\n' "$(printf '%*s' "${width:-$(tput cols)}" '' | tr ' ' '-')"
 }
 
 # Parse command line options
@@ -421,11 +483,23 @@ while [[ "${#}" -gt 0 ]]; do
     case "${1}" in
         -u|--upgrade-install)
             shift
+            if [[ $log_very_verbose -eq 1 ]]; then
+                output "yellow" "-- Begin upgrade or install --"
+            fi
             upgrade_calibre
+            if [[ $log_very_verbose -eq 1 ]]; then
+                output "yellow" "-- End upgrade or install --"
+            fi
             exit
             ;;
         -h|--help)
+            if [[ $log_very_verbose -eq 1 ]]; then
+                output "yellow" "-- Begin displaying help --"
+            fi
             usage
+            if [[ $log_very_verbose -eq 1 ]]; then
+                output "yellow" "-- End displaying help --"
+            fi
             exit
             ;;
         -v|--verbose)
@@ -433,10 +507,10 @@ while [[ "${#}" -gt 0 ]]; do
             shift
             ;;
         -V|--very-verbose)
-            log_verbose=2
+            log_very_verbose=1
             shift
             ;;
-        -d|--debug)
+        -t|--step)
             log_debug=1
             shift
             ;;
@@ -454,7 +528,13 @@ while [[ "${#}" -gt 0 ]]; do
             shift
             ;;
         -c|--create-launcher)
+            if [[ $log_very_verbose -eq 1 ]]; then
+                output "yellow" "-- Begin creating launcher --"
+            fi
             create_command_launcher
+            if [[ $log_very_verbose -eq 1 ]]; then
+                output "yellow" "-- End creating launcher --"
+            fi
             exit
             ;;
         *)
@@ -471,7 +551,13 @@ if [[ -f "$config_file" ]]; then
     # shellcheck source=/dev/null
     source "$config_file"
 else
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "-- Begin initial setup --"
+    fi
     initial_setup
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "-- End initial setup --"
+    fi
 fi
 
 # Set environment variables based on configuration file
@@ -480,9 +566,13 @@ export CALIBRE_CONFIG_DIRECTORY="${CALIBRE_CONFIG_DIRECTORY:-$(pwd)/CalibreConfi
 if [[ -d "${CALIBRE_CONFIG_DIRECTORY}" ]]; then
     [[ $log_very_silent -eq 0 ]] && output "CONFIG FILES:       ${CALIBRE_CONFIG_DIRECTORY}"
 else
-    [[ $log_very_silent -eq 0 ]] && output -e "\033[0;31mCONFIG FILES:       Not found\033[0m"
+    [[ $log_very_silent -eq 0 ]] && output "red" "CONFIG FILES:       Not found"
 fi
 print_divider
+if [[ $log_very_verbose -eq 1 ]]; then
+    output "yellow" "-- End setting environment variables --"
+fi
+step_mode
 
 # Set library directories and check their existence
 CALIBRE_LIBRARY_DIRECTORIES=(
@@ -490,6 +580,10 @@ CALIBRE_LIBRARY_DIRECTORIES=(
     "${CALIBRE_LIBRARY_DIRECTORIES[1]:-/path/to/second/CalibreLibrary}"
     "${CALIBRE_LIBRARY_DIRECTORIES[2]:-$(pwd)/CalibreLibrary}"
 )
+
+if [[ $log_very_verbose -eq 1 ]]; then
+    output "yellow" "-- Begin setting library directories --"
+fi
 
 for library_dir in "${CALIBRE_LIBRARY_DIRECTORIES[@]}"; do
     if [[ -d "${library_dir}" ]]; then
@@ -499,8 +593,12 @@ for library_dir in "${CALIBRE_LIBRARY_DIRECTORIES[@]}"; do
     fi
 done
 
-[[ -z "${CALIBRE_LIBRARY_DIRECTORY}" ]] && [[ $log_very_silent -eq 0 ]] && output -e "\033[0;31mLIBRARY FILES:      Not found\033[0m"
+[[ -z "${CALIBRE_LIBRARY_DIRECTORY}" ]] && [[ $log_very_silent -eq 0 ]] && output "red" "LIBRARY FILES:      Not found"
 print_divider
+if [[ $log_very_verbose -eq 1 ]]; then
+    output "yellow" "-- End setting library directories --"
+fi
+step_mode
 
 # Set temporary directory
 export CALIBRE_TEMP_DIR="${CALIBRE_TEMP_DIR:-$(pwd)/CalibreTemp}"
@@ -509,9 +607,13 @@ if [[ -d "${CALIBRE_TEMP_DIR}" ]]; then
     export CALIBRE_CACHE_DIRECTORY="${CALIBRE_TEMP_DIR}"
     [[ $log_very_silent -eq 0 ]] && output "TEMPORARY FILES:    ${CALIBRE_TEMP_DIR}"
 else
-    [[ $log_very_silent -eq 0 ]] && output -e "\033[0;31mTEMPORARY FILES:    Not found\033[0m"
+    [[ $log_very_silent -eq 0 ]] && output "red" "TEMPORARY FILES:    Not found"
 fi
 print_divider
+if [[ $log_very_verbose -eq 1 ]]; then
+    output "yellow" "-- End setting temporary directory --"
+fi
+step_mode
 
 # Set binary directory and check its existence
 if [[ -d "$(pwd)/CalibreBin/calibre.app/Contents/MacOS" ]]; then
@@ -522,6 +624,10 @@ else
     CALIBRE_BINARY_DIRECTORY=""
 fi
 
+if [[ $log_very_verbose -eq 1 ]]; then
+    output "yellow" "-- Begin setting binary directory --"
+fi
+
 if [[ -n "$CALIBRE_BINARY_DIRECTORY" ]]; then
     calibre_executable="${CALIBRE_BINARY_DIRECTORY}/calibre"
     [[ $log_very_silent -eq 0 ]] && output "PROGRAM FILES:      ${CALIBRE_BINARY_DIRECTORY}"
@@ -529,17 +635,53 @@ else
     calibre_executable="calibre"
     [[ $log_very_silent -eq 0 ]] && output "PROGRAM FILES:      No portable copy found."
     [[ $log_very_silent -eq 0 ]] && output "To install a portable copy, run './calibre-portable-mac.sh --upgrade-install'"
-    [[ $log_very_silent -eq 0 ]] && output -e "\033[0;31m*** Using system search path instead***\033[0m"
+    [[ $log_very_silent -eq 0 ]] && output "red" "*** Using system search path instead***"
 fi
 print_divider
-
-# Set interface language if specified
-if [[ -n "${CALIBRE_OVERRIDE_LANG}" ]]; then
-    export CALIBRE_OVERRIDE_LANG
-    [[ $log_very_silent -eq 0 ]] && output "INTERFACE LANGUAGE: ${CALIBRE_OVERRIDE_LANG}"
+if [[ $log_very_verbose -eq 1 ]]; then
+    output "yellow" "-- End setting binary directory --"
 fi
+step_mode
+
+# Function to draw a box around text
+draw_box() {
+    local content="$1"
+    local color="$2"
+    local line_length
+    line_length=$(printf "%s" "$content" | wc -c)
+    tput setaf 3
+    printf " %s\n" "$(printf -- '-%.0s' $(seq 1 $((line_length + 4))))"
+    printf "| %s |\n" "$(printf -- ' %.0s' $(seq 1 $((line_length + 2))))"
+    printf "| %s%s%s |\n" "$(tput setaf 4)" "$content" "$(tput setaf 3)"
+    printf "| %s |\n" "$(printf -- ' %.0s' $(seq 1 $((line_length + 2))))"
+    printf " %s\n" "$(printf -- '-%.0s' $(seq 1 $((line_length + 4))))"
+    tput sgr0
+}
+
+# Function to display directory status in a box
+display_directory_status_box() {
+    local directory_name="$1"
+    local directory_path="$2"
+    local status_color
+    if [[ -d "$directory_path" ]]; then
+        status_color="green"
+    else
+        status_color="red"
+        directory_path="Not set or does not exist"
+    fi
+    draw_box "$directory_name : $directory_path" "$status_color"
+}
 
 # Confirm start if not set to auto-start and run Calibre
+if [[ $log_very_verbose -eq 1 ]]; then
+    print_divider
+    display_directory_status_box "CONFIG DIRECTORY" "$CALIBRE_CONFIG_DIRECTORY"
+    display_directory_status_box "LIBRARY DIRECTORY" "$CALIBRE_LIBRARY_DIRECTORY"
+    display_directory_status_box "TEMP DIRECTORY" "$CALIBRE_TEMP_DIR"
+    display_directory_status_box "BINARY DIRECTORY" "$CALIBRE_BINARY_DIRECTORY"
+    print_divider
+fi
+
 if [[ "${calibre_no_confirm_start}" != "1" && $log_very_silent -eq 0 ]]; then
     read -rp "Start Calibre? (Y/n) " choice
     case "$choice" in
@@ -548,11 +690,18 @@ if [[ "${calibre_no_confirm_start}" != "1" && $log_very_silent -eq 0 ]]; then
     esac
 fi
 
+if [[ $log_very_verbose -eq 1 ]]; then
+    output "yellow" "-- Begin starting Calibre --"
+fi
 if [[ $log_very_silent -eq 1 ]]; then
     log_dry_run "$calibre_executable" --with-library "${CALIBRE_LIBRARY_DIRECTORY}" &
 else
-    output "Starting up calibre from portable directory \"$(pwd)\""
+    output "green" "Starting up calibre from portable directory \"$(pwd)\""
     log_dry_run "$calibre_executable" --with-library "${CALIBRE_LIBRARY_DIRECTORY}" &
 fi
+if [[ $log_very_verbose -eq 1 ]]; then
+    output "yellow" "-- End starting Calibre --"
+fi
+step_mode
 
 ###EOF
