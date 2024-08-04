@@ -2,7 +2,7 @@
 #                       calibre-portable-mac.sh
 #                           By: Pidockmedia
 #                       ¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬
-# Unique Name: calibre-portable-mac.sh-mod-box-output-v15
+# Unique Name: calibre-portable-mac-v18.sh
 #
 # Shell script to manage a portable Calibre configuration on macOS.
 #
@@ -341,7 +341,7 @@ initial_setup() {
     if [[ $log_very_verbose -eq 1 ]]; then
         output "yellow" "-- Begin CalibreConfig directory creation --"
     fi
-    if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+    if ([[ "$choice" == "y" || "$choice" == "Y" ]]); then
         log_dry_run mkdir -p "$(pwd)/CalibreConfig"
         log_dry_run chmod 755 "$(pwd)/CalibreConfig"
         output "green" "Created CalibreConfig directory."
@@ -361,7 +361,7 @@ initial_setup() {
     if [[ $log_very_verbose -eq 1 ]]; then
         output "yellow" "-- Begin CalibreLibrary directory creation --"
     fi
-    if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+    if ([[ "$choice" == "y" || "$choice" == "Y" ]]); then
         log_dry_run mkdir -p "$(pwd)/CalibreLibrary"
         log_dry_run chmod 755 "$(pwd)/CalibreLibrary"
         output "green" "Created CalibreLibrary directory."
@@ -381,7 +381,7 @@ initial_setup() {
     if [[ $log_very_verbose -eq 1 ]]; then
         output "yellow" "-- Begin CalibreTemp directory creation --"
     fi
-    if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+    if ([[ "$choice" == "y" || "$choice" == "Y" ]]); then
         log_dry_run mkdir -p "$(pwd)/CalibreTemp"
         log_dry_run chmod 755 "$(pwd)/CalibreTemp"
         output "green" "Created CalibreTemp directory."
@@ -413,7 +413,7 @@ initial_setup() {
         else
             choice="y"
         fi
-        if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+        if ([[ "$choice" == "y" || "$choice" == "Y" ]]); then
             log_dry_run mkdir -p "$(pwd)/CalibreBin"
             log_dry_run mv "$(pwd)/calibre.app" "$(pwd)/CalibreBin/"
             log_dry_run chmod 755 "$(pwd)/CalibreBin"
@@ -428,7 +428,7 @@ initial_setup() {
     else
         choice="y"
     fi
-    if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+    if ([[ "$choice" == "y" || "$choice" == "Y" ]]); then
         create_command_launcher
     fi
 
@@ -475,7 +475,7 @@ _EOF_
 
 # Function to print divider
 print_divider() {
-    printf '+%s+\n' "$(printf '%*s' "${width:-$(tput cols)}" '' | tr ' ' '-')"
+    printf '+%s+\n' "$(printf '%*s' $((width - 2)) '' | tr ' ' '-')"
 }
 
 # Parse command line options
