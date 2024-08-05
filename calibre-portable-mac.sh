@@ -149,21 +149,21 @@ trap cleanup EXIT
 
 # Function to display usage information
 usage() {
-    cat <<-_EOF_
-        Usage: calibre-portable-mac.sh [OPTIONS]
-        Run a portable instance of Calibre.
+    cat <<- _EOF_
+	Usage: calibre-portable-mac.sh [OPTIONS]
+	Run a portable instance of Calibre.
 
-        OPTIONS
-          -u, --upgrade-install     Upgrade or install the portable Calibre binaries
-          -h, --help                Show this usage message then exit
-          -v, --verbose             Enable detailed logging of the script's actions
-          -V, --very-verbose        Enable highly detailed logging, including variable values and detailed descriptions of each action
-          -t, --step                Step through the script interactively, allowing the user to continue or quit at each step
-          -r, --dry-run             Output the changes that would be made without actually making them
-          -c, --create-launcher     Create a command launcher for starting Calibre
-          -s, --silent              Suppress all output except errors and the start prompt
-          -S, --very-silent         Suppress all output including the start prompt
- _EOF_
+	OPTIONS
+	  -u, --upgrade-install     Upgrade or install the portable Calibre binaries
+	  -h, --help                Show this usage message then exit
+	  -v, --verbose             Enable detailed logging of the script's actions
+	  -V, --very-verbose        Enable highly detailed logging, including variable values and detailed descriptions of each action
+	  -t, --step                Step through the script interactively, allowing the user to continue or quit at each step
+	  -r, --dry-run             Output the changes that would be made without actually making them
+	  -c, --create-launcher     Create a command launcher for starting Calibre
+	  -s, --silent              Suppress all output except errors and the start prompt
+	  -S, --very-silent         Suppress all output including the start prompt
+	_EOF_
 }
 
 # Function to upgrade or install Calibre on macOS
@@ -449,7 +449,7 @@ initial_setup() {
         echo "[DRY-RUN] #calibre_no_cleanup=0"
         echo "[DRY-RUN] _EOF_"
     else
-        cat <<-_EOF_ > "$(pwd)/calibre-portable.conf"
+        cat <<- _EOF_ > "$(pwd)/calibre-portable.conf"
 # Configuration file for calibre-portable. Generated on $(date)
 # Settings in here will override the defaults specified in the portable launcher.
 
