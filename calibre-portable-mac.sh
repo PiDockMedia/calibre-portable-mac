@@ -2,44 +2,44 @@
 #                       calibre-portable-mac.sh
 #                           By: Pidockmedia
 #                       ¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬
-# Unique Name: calibre-portable-mac.sh-v20
-
+# Unique Name: calibre-portable-mac-v24.sh
+#
 # Shell script to manage a portable Calibre configuration on macOS.
-
+#
 # This script started as a fork of the calibre-portable.sh script by
 # eschwartz, which was based on the calibre-portable.sh script by itimpi
-
+#
 # The script has been modified to work on macOS and to provide additional
 # features and options for managing a portable Calibre configuration.
 # The script is designed to be run from the command line and provides
 # options for upgrading or installing the Calibre binaries, creating a
 # command launcher for starting Calibre, and setting detailed logging
 # levels for debugging and troubleshooting.
-
+#
 # Bash code has been heavily modified using AI. It was a personal challenge
 # to see how much I could improve the script without personally writing
 # a single line of code.
-
+#
 # This script provides explicit control over the location of:
 #  - Calibre app location
 #  - Calibre library files
 #  - Calibre config files
 #  - Calibre metadata database
 #  - Calibre temporary files
-
+#
 # Use cases:
 #  - Run a "portable Calibre" from a USB stick.
 #  - Network installation with a local metadata database for performance,
 #    and books stored on a network share.
 #  - Local installation using customized settings.
-
+#
 # Features:
 #  - Detailed logging and debugging options.
 #  - Dry-run mode to preview changes without applying them.
-
+#
 # More information on the environment variables used by Calibre can be found at:
 # https://manual.calibre-ebook.com/customize.html#environment-variables
-
+#
 # Options:
 #  -u, --upgrade-install   Upgrade or install the portable Calibre binaries
 #  -h, --help              Show usage message and exit
@@ -50,7 +50,7 @@
 #  -c, --create-launcher   Create a command launcher for starting Calibre
 #  -s, --silent            Suppress all output except errors and the start prompt
 #  -S, --very-silent       Suppress all output including the start prompt
-
+#
 # Script Overview:
 # 1. Initialize script with strict mode and set default variables.
 # 2. Define logging and debugging functions.
@@ -163,7 +163,7 @@ usage() {
           -c, --create-launcher     Create a command launcher for starting Calibre
           -s, --silent              Suppress all output except errors and the start prompt
           -S, --very-silent         Suppress all output including the start prompt
-_EOF_
+ _EOF_
 }
 
 # Function to upgrade or install Calibre on macOS
@@ -302,8 +302,12 @@ move_calibre_app() {
     if [[ $log_very_verbose -eq 1 ]]; then
         output "yellow" "-- Begin moving calibre.app --"
     fi
-    read -rp "Would you like to create the 'CalibreBin' directory and move 'calibre.app' there? (Y/n) " choice
-    choice="${choice:-y}"
+    if [[ $log_silent -eq 0 ]]; then
+        read -rp "Would you like to create the 'CalibreBin' directory and move 'calibre.app' there? (Y/n) " choice
+        choice="${choice:-y}"
+    else
+        choice="y"
+    fi
     if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
         CALIBRE_BINARY_DIRECTORY="$(pwd)/CalibreBin"
         if [[ ! -d "$CALIBRE_BINARY_DIRECTORY" ]]; then
@@ -414,11 +418,7 @@ initial_setup() {
             choice="y"
         fi
         if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
-            log_dry_run mkdir -p "$(pwd)/CalibreBin"
-            log_dry_run mv "$(pwd)/calibre.app" "$(pwd)/CalibreBin/"
-            log_dry_run chmod 755 "$(pwd)/CalibreBin"
-            CALIBRE_BINARY_DIRECTORY="$(pwd)/CalibreBin/calibre.app/Contents/MacOS"
-            output "green" "Moved calibre.app to CalibreBin directory."
+            move_calibre_app "$(pwd)/calibre.app"
         fi
     fi
 
@@ -570,7 +570,7 @@ if [[ -d "${CALIBRE_CONFIG_DIRECTORY}" ]]; then
 else
     [[ $log_very_silent -eq 0 ]] && output "red" "CONFIG FILES:       Not found"
 fi
-print_divider
+[[ $log_silent -eq 0 && $log_very_silent -eq 0 ]] && print_divider
 if [[ $log_very_verbose -eq 1 ]]; then
     output "yellow" "-- End setting environment variables --"
 fi
@@ -596,7 +596,7 @@ for library_dir in "${CALIBRE_LIBRARY_DIRECTORIES[@]}"; do
 done
 
 [[ -z "${CALIBRE_LIBRARY_DIRECTORY}" ]] && [[ $log_very_silent -eq 0 ]] && output "red" "LIBRARY FILES:      Not found"
-print_divider
+[[ $log_silent -eq 0 && $log_very_silent -eq 0 ]] && print_divider
 if [[ $log_very_verbose -eq 1 ]]; then
     output "yellow" "-- End setting library directories --"
 fi
@@ -611,7 +611,7 @@ if [[ -d "${CALIBRE_TEMP_DIR}" ]]; then
 else
     [[ $log_very_silent -eq 0 ]] && output "red" "TEMPORARY FILES:    Not found"
 fi
-print_divider
+[[ $log_silent -eq 0 && $log_very_silent -eq 0 ]] && print_divider
 if [[ $log_very_verbose -eq 1 ]]; then
     output "yellow" "-- End setting temporary directory --"
 fi
@@ -639,7 +639,7 @@ else
     [[ $log_very_silent -eq 0 ]] && output "To install a portable copy, run './calibre-portable-mac.sh --upgrade-install'"
     [[ $log_very_silent -eq 0 ]] && output "red" "*** Using system search path instead***"
 fi
-print_divider
+[[ $log_silent -eq 0 && $log_very_silent -eq 0 ]] && print_divider
 if [[ $log_very_verbose -eq 1 ]]; then
     output "yellow" "-- End setting binary directory --"
 fi
@@ -676,12 +676,12 @@ display_directory_status_box() {
 
 # Confirm start if not set to auto-start and run Calibre
 if [[ $log_very_verbose -eq 1 ]]; then
-    print_divider
-    display_directory_status_box "CONFIG DIRECTORY" "$CALIBRE_CONFIG_DIRECTORY"
-    display_directory_status_box "LIBRARY DIRECTORY" "$CALIBRE_LIBRARY_DIRECTORY"
-    display_directory_status_box "TEMP DIRECTORY" "$CALIBRE_TEMP_DIR"
-    display_directory_status_box "BINARY DIRECTORY" "$CALIBRE_BINARY_DIRECTORY"
-    print_divider
+    [[ $log_silent -eq 0 && $log_very_silent -eq 0 ]] && print_divider
+    [[ $log_silent -eq 0 && $log_very_silent -eq 0 ]] && display_directory_status_box "CONFIG DIRECTORY" "$CALIBRE_CONFIG_DIRECTORY"
+    [[ $log_silent -eq 0 && $log_very_silent -eq 0 ]] && display_directory_status_box "LIBRARY DIRECTORY" "$CALIBRE_LIBRARY_DIRECTORY"
+    [[ $log_silent -eq 0 && $log_very_silent -eq 0 ]] && display_directory_status_box "TEMP DIRECTORY" "$CALIBRE_TEMP_DIR"
+    [[ $log_silent -eq 0 && $log_very_silent -eq 0 ]] && display_directory_status_box "BINARY DIRECTORY" "$CALIBRE_BINARY_DIRECTORY"
+    [[ $log_silent -eq 0 && $log_very_silent -eq 0 ]] && print_divider
 fi
 
 if [[ "${calibre_no_confirm_start}" != "1" && $log_very_silent -eq 0 ]]; then
