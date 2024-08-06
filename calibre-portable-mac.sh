@@ -2,7 +2,7 @@
 #                       calibre-portable-mac.sh
 #                           By: Pidockmedia
 #                       ¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬
-# Unique Name: calibre-portable-mac-v28.sh
+# Unique Name: calibre-portable-mac-v29.sh
 #
 # Shell script to manage a portable Calibre configuration on macOS.
 #
@@ -163,7 +163,7 @@ usage() {
           -c, --create-launcher     Create a command launcher for starting Calibre
           -s, --silent              Suppress all output except errors and the start prompt
           -S, --very-silent         Suppress all output including the start prompt
- _EOF_
+_EOF_
 }
 
 # Function to upgrade or install Calibre on macOS
