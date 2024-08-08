@@ -2,7 +2,7 @@
 #                       calibre-portable-mac.sh
 #                           By: Pidockmedia
 #                       ¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬
-# Unique Name: calibre-portable-mac-v29.sh
+# Unique Name: calibre-portable-mac-v30.sh
 #
 # Shell script to manage a portable Calibre configuration on macOS.
 #
@@ -232,8 +232,27 @@ upgrade_calibre() {
         step_mode
         log_dry_run "${cp_command[@]}"
 
-        log_dry_run rm -rf "${CALIBRE_BINARY_DIRECTORY}/calibre.app"
-        move_calibre_app "$temp_calibre_app_path"
+        # Determine the location of calibre.app
+        if [[ -d "$(pwd)/CalibreBin" ]]; then
+            log_dry_run rm -rf "$(pwd)/CalibreBin/calibre.app"
+            CALIBRE_BINARY_DIRECTORY="$(pwd)/CalibreBin"
+        elif [[ -d "$(pwd)/calibre.app" ]]; then
+            log_dry_run rm -rf "$(pwd)/calibre.app"
+            CALIBRE_BINARY_DIRECTORY="$(pwd)"
+        fi
+
+        # Source the configuration file again to ensure user settings take precedence
+        config_file="$(pwd)/calibre-portable.conf"
+        if [[ -f "$config_file" ]]; then
+            # shellcheck source=/dev/null
+            source "$config_file"
+        fi
+
+        # Move calibre.app to the CALIBRE_BINARY_DIRECTORY without prompting
+        log_dry_run mv "$temp_calibre_app_path" "$CALIBRE_BINARY_DIRECTORY/calibre.app"
+        log_dry_run chmod 755 "$CALIBRE_BINARY_DIRECTORY"
+        output "green" "Moved 'calibre.app' to 'CalibreBin' directory."
+
         output "green" "Calibre has been upgraded/installed successfully."
 
         # Unmounting the dmg
@@ -307,25 +326,16 @@ move_calibre_app() {
     if [[ $log_very_verbose -eq 1 ]]; then
         output "yellow" "-- Begin moving calibre.app --"
     fi
-    if [[ $log_silent -eq 0 ]]; then
-        read -rp "Would you like to create the 'CalibreBin' directory and move 'calibre.app' there? (Y/n) " choice
-        choice="${choice:-y}"
-    else
-        choice="y"
+
+    # Automatically move calibre.app to the CALIBRE_BINARY_DIRECTORY
+    CALIBRE_BINARY_DIRECTORY="$(pwd)/CalibreBin"
+    if [[ ! -d "$CALIBRE_BINARY_DIRECTORY" ]]; then
+        log_dry_run mkdir -p "$CALIBRE_BINARY_DIRECTORY"
     fi
-    if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
-        CALIBRE_BINARY_DIRECTORY="$(pwd)/CalibreBin"
-        if [[ ! -d "$CALIBRE_BINARY_DIRECTORY" ]]; then
-            log_dry_run mkdir -p "$CALIBRE_BINARY_DIRECTORY"
-        fi
-        log_dry_run mv "$temp_calibre_app_path" "$CALIBRE_BINARY_DIRECTORY/calibre.app"
-        log_dry_run chmod 755 "$CALIBRE_BINARY_DIRECTORY"
-        output "green" "Moved 'calibre.app' to 'CalibreBin' directory."
-    else
-        CALIBRE_BINARY_DIRECTORY="$(pwd)"
-        log_dry_run mv "$temp_calibre_app_path" "$CALIBRE_BINARY_DIRECTORY/calibre.app"
-        output "green" "Moved 'calibre.app' to the current directory."
-    fi
+    log_dry_run mv "$temp_calibre_app_path" "$CALIBRE_BINARY_DIRECTORY/calibre.app"
+    log_dry_run chmod 755 "$CALIBRE_BINARY_DIRECTORY"
+    output "green" "Moved 'calibre.app' to 'CalibreBin' directory."
+
     output_debug "CALIBRE_BINARY_DIRECTORY=${CALIBRE_BINARY_DIRECTORY}"
     if [[ $log_very_verbose -eq 1 ]]; then
         output "yellow" "-- End moving calibre.app --"
