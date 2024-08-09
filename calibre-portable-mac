@@ -2,7 +2,7 @@
 #                       calibre-portable-mac.sh
 #                           By: Pidockmedia
 #                       ¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬
-# Unique Name: calibre-portable-mac-v30.sh
+# Unique Name: calibre-portable-mac-v32.sh
 #
 # Shell script to manage a portable Calibre configuration on macOS.
 #
@@ -187,6 +187,9 @@ upgrade_calibre() {
     temp_dir="$(pwd)/calibre_temp"
     output_debug "TEMP_DIR=${temp_dir}"
     log_dry_run mkdir -p "$temp_dir"
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "Created temporary directory: ${temp_dir}"
+    fi
     step_mode
 
     # Getting the current dmg download url
@@ -194,6 +197,9 @@ upgrade_calibre() {
     output_debug "DMG_PATH=${dmg_path}"
     latest_dmg_url=$(curl -s https://calibre-ebook.com/download_osx | grep -o 'https://[^"]*\.dmg' | head -1)
     output_debug "LATEST_DMG_URL=${latest_dmg_url}"
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "Downloaded DMG URL: ${latest_dmg_url}"
+    fi
     step_mode
 
     if [[ -z "$latest_dmg_url" ]]; then
@@ -212,10 +218,17 @@ upgrade_calibre() {
         log_dry_run rm -rf "$temp_dir"
         exit 1
     fi
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "Downloaded Calibre DMG to: ${dmg_path}"
+    fi
+    step_mode
 
     # Mounting the dmg
     volume_path=$(hdiutil attach "$dmg_path" | grep "/Volumes/" | awk '{print $3}')
     output_debug "VOLUME_PATH=${volume_path}"
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "Mounted DMG at: ${volume_path}"
+    fi
     step_mode
 
     if [[ -z "$volume_path" ]]; then
@@ -229,8 +242,11 @@ upgrade_calibre() {
         # Copying the calibre.app from the mounted dmg to the temp directory
         cp_command=("ditto" "$volume_path/calibre.app" "$temp_calibre_app_path")
         output_debug "CP_COMMAND=${cp_command[*]}"
-        step_mode
         log_dry_run "${cp_command[@]}"
+        if [[ $log_very_verbose -eq 1 ]]; then
+            output "yellow" "Copied calibre.app to temporary directory"
+        fi
+        step_mode
 
         # Determine the location of calibre.app
         if [[ -d "$(pwd)/CalibreBin" ]]; then
@@ -253,10 +269,23 @@ upgrade_calibre() {
         log_dry_run chmod 755 "$CALIBRE_BINARY_DIRECTORY"
         output "green" "Moved 'calibre.app' to 'CalibreBin' directory."
 
+        if [[ $log_very_verbose -eq 1 ]]; then
+            output "yellow" "Detailed Information:"
+            output "yellow" "TEMP_DIR: ${temp_dir}"
+            output "yellow" "DMG_PATH: ${dmg_path}"
+            output "yellow" "LATEST_DMG_URL: ${latest_dmg_url}"
+            output "yellow" "VOLUME_PATH: ${volume_path}"
+            output "yellow" "CALIBRE_BINARY_DIRECTORY: ${CALIBRE_BINARY_DIRECTORY}"
+            output "yellow" "CP_COMMAND: ${cp_command[*]}"
+        fi
+
         output "green" "Calibre has been upgraded/installed successfully."
 
         # Unmounting the dmg
         log_dry_run hdiutil detach "$volume_path"
+        if [[ $log_very_verbose -eq 1 ]]; then
+            output "yellow" "Unmounted DMG from: ${volume_path}"
+        fi
     else
         output "red" "Failed to find calibre.app in the mounted DMG."
         log_dry_run hdiutil detach "$volume_path"
@@ -266,6 +295,9 @@ upgrade_calibre() {
 
     # Removing the temporary directory
     log_dry_run rm -rf "$temp_dir"
+    if [[ $log_very_verbose -eq 1 ]]; then
+        output "yellow" "Removed temporary directory: ${temp_dir}"
+    fi
     output_debug "upgrade_calibre function completed"
     if [[ $log_very_verbose -eq 1 ]]; then
         output "yellow" "-- End upgrading or installing Calibre --"
